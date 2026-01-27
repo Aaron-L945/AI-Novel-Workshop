@@ -1,0 +1,77 @@
+{
+    "world": {
+        "genre": "东方玄幻",
+        "tech_level": "古代",
+        "magic_system": "境界制：炼气、筑基、金丹",
+        "rules": [
+            {
+                "name": "灵气分布",
+                "description": "灵气主要集中在名山大川",
+                "immutable": true
+            },
+            {
+                "name": "越阶限制",
+                "description": "跨大境界杀敌极其困难",
+                "immutable": true
+            }
+        ]
+    },
+    "characters": {
+        "叶辰": {
+            "core": {
+                "name": "叶辰",
+                "gender": "男",
+                "personality": [
+                    "坚韧",
+                    "低调",
+                    "果断"
+                ],
+                "values": [
+                    "有恩必报",
+                    "追求长生"
+                ],
+                "fears": [
+                    "家族被灭的悲剧重演"
+                ]
+            },
+            "state": {
+                "alive": true,
+                "location": "青云镇",
+                "physical_status": [
+                    "经脉破损"
+                ],
+                "mental_status": [
+                    "冷静"
+                ]
+            },
+            "first_appearance_chapter": 0
+        }
+    },
+    "timeline": [
+        {
+            "chapter": 1,
+            "description": "\n\n### 📍 时空坐标\n- 雾隐谷 | 三日后\n\n### 👥 角色更新\n- **叶辰**：经脉尽废 | 坚韧、低调、果断 | 忍痛不吭声、用计脱身、救小六报恩\n- **小六**：无伤势",
+            "involved_characters": [
+                "叶辰"
+            ],
+            "irreversible": true,
+            "event_type": "plot"
+        },
+        {
+            "chapter": 2,
+            "description": "### 📍 时空坐标\n- 未明确提及 | 未说明时间流逝\n\n### 👥 角色更新\n- **赵虎**：名称错误（应为王虎） | 与核心设定冲突 | 原文笔误导致角色身份错位\n\n### ⚡ 剧情链条\n1. 正文将“王虎”误写为“赵虎” -> 导致角色名称与设定集核心约束不符\n\n### 🔍 伏笔与名词\n- 名词：赵虎（应为王虎）\n- 伏笔：角色名称设定错误可能引发后续剧情逻辑矛盾，需修正以维持世界观一致性",
+            "involved_characters": [
+                "叶辰"
+            ],
+            "irreversible": true,
+            "event_type": "plot"
+        }
+    ],
+    "locations": {},
+    "artifacts": {},
+    "meta": {
+        "version": 1,
+        "last_updated_chapter": 2,
+        "updated_at": "2026-01-27T10:22:52.959466"
+    }
+}
