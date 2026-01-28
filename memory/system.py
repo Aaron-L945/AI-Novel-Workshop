@@ -1,6 +1,5 @@
 import os
 import shutil
-import pickle
 import json
 
 from memory.creative import CreativeMemory
@@ -41,10 +40,6 @@ def reset_all_data(creative_memory: CreativeMemory):
     if os.path.exists("story_archive"):
         shutil.rmtree("story_archive")
 
-    # 3. 删除序列化存档
-    if os.path.exists("canon_storage.pkl"):
-        os.remove("canon_storage.pkl")
-
-    # 4. 删除 JSON 存档 (注意这里后缀改成了 .json)
+    # 3. 删除 JSON 存档 (注意这里后缀改成了 .json)
     if os.path.exists("canon_storage.json"):
         os.remove("canon_storage.json")

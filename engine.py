@@ -1,6 +1,3 @@
-from dotenv import load_dotenv
-
-load_dotenv()
 import os
 from datetime import datetime
 from memory.system import load_canon, save_canon
@@ -19,42 +16,24 @@ from crewai import Crew
 def get_initialized_memory() -> CanonMemory:
     canon = load_canon()
     if not canon:
-        print("未发现存档，正在初始化全新世界...")
-        # 1. 创建世界设定
-        initial_world = World(
-            genre="东方玄幻",
-            tech_level="古代",
-            magic_system="境界制：炼气、筑基、金丹",
-            rules=[
-                WorldRule(
-                    name="灵气分布",
-                    description="灵气主要集中在名山大川",
-                ),
-                WorldRule(
-                    name="越阶限制",
-                    description="跨大境界杀敌极其困难",
-                ),
-            ],
+        print("未发现存档，正在准备空白世界画布...")
+
+        # 1. 创建真空世界设定（所有字段设为空字符串或空列表）
+        empty_world = World(
+            genre="",  # 留空，触发 UI 引导
+            tech_level="",
+            magic_system="",
+            rules=[],  # 初始规则列表为空
         )
 
-        # 2. 创建初始角色
-        hero = Character(
-            core=CharacterCore(
-                name="叶辰",
-                gender="男",
-                personality=["坚韧", "低调", "果断"],
-                values=["有恩必报", "追求长生"],
-                fears=["家族被灭的悲剧重演"],
-            ),
-            state=CharacterState(
-                location="青云镇", physical_status=["经脉破损"], mental_status=["冷静"]
-            ),
-            first_appearance_chapter=0,
-        )
+        # 2. 初始角色字典为空
+        # 不再预设“叶辰”，让用户通过 UI 降临第一个角色
+        empty_characters = {}
 
+        # 3. 组装空内存对象
         canon = CanonMemory(
-            world=initial_world,
-            characters={"叶辰": hero},
+            world=empty_world,
+            characters=empty_characters,
             timeline=[],
             meta=CanonMeta(version=1, last_updated_chapter=0, updated_at=datetime.now()),
         )
@@ -72,7 +51,7 @@ def prepare_crew(canon: CanonMemory) -> Crew:
     plan = plan_task(d_agent)
     write = write_task(w_agent, plan)
     check = check_task(c_agent, write, canon.read())
-    memory = memory_task(m_agent, check)
+    memory = memory_task(m_agent, write)
 
     return build_crew(
         agents=[d_agent, w_agent, c_agent, m_agent], tasks=[plan, write, check, memory]

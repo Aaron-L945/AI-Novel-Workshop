@@ -1,30 +1,15 @@
-# memory/creative.py
-# class CreativeMemory:
-#     def __init__(self):
-#         self.archive = []
-
-#     def recall(self, query: str):
-#         # 先占位，后面接向量 / MemGPT
-#         return self.archive[-5:]
-
-#     def _write(self, content: str):
-#         self.archive.append(content)
-
-
+import numpy as np
 import chromadb
 from sentence_transformers import SentenceTransformer
 from datetime import datetime
-import os
 
 
 class CreativeMemory:
-    def __init__(self, model_path: str, db_path="./novel_memory", chapter_num = 0):
-        """
-        model_path: 你从 ModelScope 下载的模型文件夹绝对路径
-        """
+    def __init__(self, model_path: str, db_path="./novel_memory"):
         # 1. 加载本地模型
-        # trust_remote_code=True 是必须的，因为 Nomic 模型包含自定义逻辑
-        self.model = SentenceTransformer(model_path, trust_remote_code=True, device="cpu", local_files_only=True)
+        self.model = SentenceTransformer(
+            model_path, trust_remote_code=True, device="cpu", local_files_only=True
+        )
 
         # 2. 初始化 ChromaDB
         self.client = chromadb.PersistentClient(path=db_path)
@@ -35,23 +20,32 @@ class CreativeMemory:
         self.limit = 5
 
     def _get_embedding(self, text: str, is_query: bool = True):
-        """使用本地加载的 nomic-embed-text 生成向量"""
-        # Nomic 官方建议在输入前添加特定任务前缀以提升效果
+        """生成并归一化向量，返回 1D 列表 [float, ...]"""
         prefix = "search_query: " if is_query else "search_document: "
         full_text = prefix + text
 
-        # 生成向量并转换为 list 格式供 ChromaDB 使用
-        embeddings = self.model.encode([full_text], convert_to_numpy=True)
-        return embeddings[0].tolist()
+        # encode 返回的是 numpy 数组
+        # 注意：这里传入的是 [full_text]，encode 返回 [[...]]，我们取 [0] 变成 1D
+        embedding = self.model.encode([full_text], convert_to_numpy=True)[0]
 
-    def write_note(self, content: str, chapter_num):
-        """提取的记忆持久化存储"""
+        # L2 归一化：解决距离数值过大（300+）的问题，使其缩放到 0-2 之间
+        norm = np.linalg.norm(embedding)
+        if norm > 0:
+            embedding = embedding / norm
+
+        return embedding.tolist()
+
+    def write_note(self, content: str, chapter_num: int):
+        """存入记忆"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # 存入向量库
+        # 获取 1D 向量
+        emb = self._get_embedding(content, is_query=False)
+
+        # 存入向量库：embeddings 参数要求是 [[...]]，所以包装一层 [emb]
         self.collection.add(
             documents=[content],
-            embeddings=[self._get_embedding(content, is_query=False)],
+            embeddings=[emb],
             metadatas=[{"chapter": chapter_num, "time": timestamp}],
             ids=[f"ch_{chapter_num}_{datetime.now().timestamp()}"],
         )
@@ -62,18 +56,36 @@ class CreativeMemory:
             self.working_context.pop(0)
 
     def recall(self, query: str, n_results: int = 3):
-        """语义检索"""
+        """语义检索 + 阈值过滤"""
+        count = self.collection.count()
+        if count == 0:
+            return "NO_MATCH", "\n".join(self.working_context)
+
+        # 获取查询向量 (1D 列表)
+        query_emb = self._get_embedding(query, is_query=True)
+
+        # 向量库查询
         results = self.collection.query(
-            query_embeddings=[self._get_embedding(query, is_query=True)],
-            n_results=n_results,
+            query_embeddings=[query_emb],
+            n_results=min(n_results, count),
         )
 
-        historical_context = "\n".join(results["documents"][0])
-        recent_context = "\n".join(self.working_context)
+        valid_docs = []
+        docs = results["documents"][0]
+        distances = results["distances"][0]
 
-        return f"【历史相关记录】：\n{historical_context}\n\n【近期情节回顾】：\n{recent_context}"
+        # 💡 核心优化：由于做了归一化，L2距离现在很小
+        # 0.0 - 0.4: 极度相关 | 0.4 - 0.6: 比较相关 | > 0.8: 不相关
+        threshold = 0.7
 
+        for doc, dist in zip(docs, distances):
+            has_keyword = query.lower() in doc.lower()
+            # 只有满足关键词命中，或者距离足够近才通过
+            if has_keyword or dist < threshold:
+                valid_docs.append(doc)
 
-# --- 使用示例 ---
-# LOCAL_MODEL_DIR = "/root/models/nomic-embed-text-v1.5" # 替换为你实际解压的路径
-# creative = CreativeMemory(model_path=LOCAL_MODEL_DIR)
+        # 格式化输出
+        hist_text = "\n\n".join(valid_docs) if valid_docs else "NO_MATCH"
+        recent_text = "\n".join(self.working_context)
+
+        return hist_text, recent_text
