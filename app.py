@@ -6,6 +6,7 @@ import os
 import uuid
 import html
 import re
+import json
 import streamlit.components.v1 as components
 
 from workflow.chapter_flow import run_chapter
@@ -98,7 +99,7 @@ def render_sidebar_search():
         # 3. 执行检索
         if query:
             hist, recent = creative.recall(query)
-            
+
             if hist == "NO_MATCH":
                 st.warning(f"🔍 库中没有关于 '{query}' 的确切记录")
                 # 依然显示近期动态，方便用户参考
@@ -131,14 +132,16 @@ def render_control_panel():
     is_world_ready = bool(canon.world.genre.strip())
     is_hero_ready = len(canon.characters) > 0
 
-    start_btn = st.button(
+    # 只保留这一个按钮逻辑
+    if st.button(
         "🚀 开始创作下一章",
         type="primary",
         use_container_width=True,
         disabled=not (is_world_ready and is_hero_ready),
-    )
-
-    st.session_state.start_btn = start_btn
+    ):
+        # 显式开启创作开关
+        st.session_state.trigger_generation = True
+        st.rerun()  # 立即触发重绘以进入生成流程
 
 
 def render_story_flow():
@@ -147,15 +150,24 @@ def render_story_flow():
     crew = st.session_state.crew
 
     pending_feedback = st.session_state.get("pending_feedback")
-
     is_ready = canon.world.genre and canon.characters
 
     if not is_ready:
         st.warning("### 🌌 混沌初开，世界尚未定义")
         return
 
-    if st.session_state.get("start_btn") or st.session_state.get("need_auto_run"):
+    # 修改判断逻辑：使用 trigger_generation 替代 start_btn
+    should_run = st.session_state.get("trigger_generation") or st.session_state.get(
+        "need_auto_run"
+    )
+
+    if should_run:
+        # 【关键】立即关闭开关，防止同步数据后的下一次 rerun 再次进入此逻辑
+        st.session_state.trigger_generation = False
+        st.session_state.need_auto_run = False
+
         run_generation(canon, creative, crew, pending_feedback)
+        st.rerun()  # 生成结束后刷新页面显示结果
 
     render_preview_and_actions()
 
@@ -254,20 +266,65 @@ def render_preview_and_actions():
 def confirm_chapter_to_canon(res):
     canon = st.session_state.canon
 
+    # 假设 res["memory"] 现在是 ChapterSummary 实例或对应的 dict
+    memory_data = res["memory"]
+
+    # 如果 memory_data 是字符串（AI 有时会返回字符串），则需要 json.loads
+    if isinstance(memory_data, str):
+        try:
+            memory_data = json.loads(memory_data)
+        except:
+            # 兜底：如果解析失败，退回到之前的模糊匹配
+            memory_data = {"summary": memory_data, "involved_characters": [""]}
+
+    # 提取解析出的数据
+    involved = memory_data.get("involved_characters", [""])
+
+    char_status = (
+        memory_data.get("char_update")
+        or f"{', '.join(memory_data.get('involved_characters'))}：经历了本章事件"
+    )
+    plot_flow = memory_data.get("plot_chain") or f"发生事件：{memory_data.get('summary')}"
+
+    rich_description = (
+        f"### 📍 时空坐标\n"
+        f"- {memory_data.get('locations')} | 章节时间点\n\n"
+        f"### 👥 角色更新\n"
+        f"- {char_status}\n\n"
+        f"### ⚡ 剧情链条\n"
+        f"1. {plot_flow}\n\n"
+        f"### 🔍 伏笔与名词\n"
+        f"- 名词：{memory_data.get('items')}"
+    )
+
+    # 创建正式的事件对象
     new_event = CanonEvent(
         chapter=res["chapter"],
-        description=res["memory"],
-        involved_characters=["叶辰"],  # 后续可自动解析
+        description=rich_description,  # 存入纯文本摘要
+        involved_characters=involved,
         event_type="plot",
     )
 
+    # 更新时间线
     canon.timeline = [e for e in canon.timeline if e.chapter != res["chapter"]]
     canon.timeline.append(new_event)
     canon.meta.last_updated_chapter = res["chapter"]
 
+    # --- 进阶：自动更新角色位置 ---
+    current_loc = memory_data.get("locations", [])
+    if current_loc:
+        for char_name in involved:
+            if char_name in canon.characters:
+                canon.characters[char_name].state.location = current_loc[0]
+
     save_canon(canon)
+
+    # 状态清理
     st.session_state.temp_creation_result = None
-    st.toast("数据已同步！")
+    st.session_state.trigger_generation = False
+    st.session_state.need_auto_run = False
+
+    st.toast(f"✅ 同步成功！涉及角色：{', '.join(involved)}")
     st.rerun()
 
 
@@ -388,12 +445,34 @@ def render_reset_buttons():
     creative = st.session_state.creative
 
     if st.button("♻️ 重置故事进度 (保留设定)", use_container_width=True):
-        st.session_state.canon.timeline.clear()
+        # 1. 物理清空 timeline
+        st.session_state.canon.timeline = []
+
+        # 2. 重置元数据
         st.session_state.canon.meta.last_updated_chapter = 0
+
+        # 3. 如果你的 CanonMemory 类有专门的重置方法，调用它
+        # st.session_state.canon.reset()
+
+        # 4. 清除后端数据（向量库等）
         reset_all_data(creative)
+
+        # 5. 立即持久化这个“空状态”到文件
         save_canon(st.session_state.canon)
-        st.session_state.pop("temp_creation_result", None)
+
+        # 6. 清理所有临时的 session 变量
+        keys_to_clear = [
+            "temp_creation_result",
+            "current_chapter_text",
+            "last_check_result",
+        ]
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+
         st.toast("故事已重置，世界观与角色已保留", icon="♻️")
+
+        # 7. 强制 Streamlit 重新运行整个 script
         st.rerun()
 
     st.write("---")
@@ -409,183 +488,6 @@ def render_reset_buttons():
         st.session_state.clear()
         st.toast("存档已彻底清空！", icon="✅")
         st.rerun()
-
-
-# def render_world_editor_below_control():
-#     """
-#     在主界面创作中控台下方显示世界观编辑器
-#     """
-#     canon = st.session_state.canon
-
-#     st.subheader("🌍 世界观设定")  # 放在中控台下面的标题
-
-#     # ---------- 基础设定 ----------
-#     canon.world.genre = st.text_input("题材", value=canon.world.genre, key="world_genre")
-
-#     tech_options = ["凡俗", "低武", "修真", "高武", "仙侠"]
-#     current_tech = canon.world.tech_level
-#     if current_tech not in tech_options:
-#         current_tech = tech_options[0]
-
-#     canon.world.tech_level = st.selectbox(
-#         "科技 / 修真水平",
-#         tech_options,
-#         index=tech_options.index(current_tech),
-#         key="world_tech",
-#     )
-
-#     # ---------- 世界规则 ----------
-#     st.markdown("**世界规则**")
-#     if not canon.world.rules:
-#         st.caption("尚未定义世界运行规则")
-
-#     for i, rule in enumerate(canon.world.rules):
-#         with st.expander(rule.name or f"规则 {i + 1}", expanded=False):
-#             rule.name = st.text_input("规则名", value=rule.name, key=f"rule_name_{i}")
-#             rule.description = st.text_area(
-#                 "描述", value=rule.description, key=f"rule_desc_{i}", height=80
-#             )
-
-#     if st.button("➕ 添加规则", use_container_width=True):
-
-#         canon.world.rules.append(WorldRule(name="", description=""))
-#         st.rerun()
-
-
-# def render_character_manager_below_control():
-#     """
-#     在主界面创作中控台下方显示角色管理器（可编辑 + 新增 + 删除配角）
-#     """
-#     canon = st.session_state.canon
-
-#     st.subheader("👤 角色管理器")
-
-#     # 当前角色列表
-#     char_names = list(canon.characters.keys())
-#     main_char = char_names[0] if char_names else None  # 默认第一个角色为主角
-
-#     if not char_names:
-#         st.caption("当前没有角色，请添加新角色")
-#         selected_name = None
-#     else:
-#         selected_name = st.selectbox("选择要编辑的角色", char_names, key="selected_char")
-
-#     # 选择角色后显示编辑表单
-#     if selected_name:
-#         char = canon.characters[selected_name]
-
-#         st.text_input("姓名", value=char.core.name, key="char_name")
-
-#         st.selectbox(
-#             "性别",
-#             options=["男", "女", "不明"],
-#             index=["男", "女", "不明"].index(char.core.gender),
-#             key="char_gender",
-#         )
-
-#         st.text_area(
-#             "性格标签 (逗号隔开)",
-#             value=",".join(char.core.personality),
-#             key="char_personality",
-#         )
-
-#         st.text_area(
-#             "价值观/动机 (逗号隔开)", value=",".join(char.core.values), key="char_values"
-#         )
-
-#         st.text_area(
-#             "内心恐惧 (逗号隔开)", value=",".join(char.core.fears), key="char_fears"
-#         )
-
-#         st.text_input("当前位置", value=char.state.location, key="char_location")
-
-#         st.checkbox("存活", value=char.state.alive, key="char_alive")
-
-#         # 保存按钮
-#         if st.button("💾 保存角色修改", use_container_width=True):
-#             from memory.schema.character import Character, CharacterCore, CharacterState
-
-#             updated_char = Character(
-#                 core=CharacterCore(
-#                     name=st.session_state.char_name,
-#                     gender=st.session_state.char_gender,
-#                     personality=[
-#                         p.strip()
-#                         for p in st.session_state.char_personality.split(",")
-#                         if p
-#                     ],
-#                     values=[
-#                         v.strip() for v in st.session_state.char_values.split(",") if v
-#                     ],
-#                     fears=[
-#                         f.strip() for f in st.session_state.char_fears.split(",") if f
-#                     ],
-#                 ),
-#                 state=CharacterState(
-#                     location=st.session_state.char_location,
-#                     alive=st.session_state.char_alive,
-#                     physical_status=["完好"],
-#                     mental_status=["冷静"],
-#                 ),
-#                 first_appearance_chapter=canon.meta.last_updated_chapter,
-#             )
-
-#             canon.characters[updated_char.core.name] = updated_char
-#             st.session_state.canon = canon
-#             from memory.system import save_canon
-
-#             save_canon(canon)
-
-#             st.success(f"角色 {updated_char.core.name} 已保存")
-#             st.rerun()
-
-#         # 删除配角（非主角）
-#         if selected_name != main_char:
-#             if st.button(f"🗑 删除角色 {selected_name}", use_container_width=True):
-#                 del canon.characters[selected_name]
-#                 st.session_state.canon = canon
-#                 from memory.system import save_canon
-
-#                 save_canon(canon)
-#                 st.success(f"角色 {selected_name} 已删除")
-#                 st.rerun()
-#         else:
-#             st.info("⭐ 主角无法删除")
-
-#     # 添加新角色
-#     st.markdown("---")
-#     st.info("添加新角色")
-#     new_name = st.text_input("新角色姓名", key="new_char_name")
-#     if st.button("➕ 添加角色"):
-#         if not new_name.strip():
-#             st.warning("姓名不能为空")
-#         elif new_name in canon.characters:
-#             st.warning("该角色已存在")
-#         else:
-#             from memory.schema.character import Character, CharacterCore, CharacterState
-
-#             canon.characters[new_name] = Character(
-#                 core=CharacterCore(
-#                     name=new_name,
-#                     gender="男",
-#                     personality=[],
-#                     values=[],
-#                     fears=[],
-#                 ),
-#                 state=CharacterState(
-#                     location="起始点",
-#                     alive=True,
-#                     physical_status=["完好"],
-#                     mental_status=["冷静"],
-#                 ),
-#                 first_appearance_chapter=canon.meta.last_updated_chapter,
-#             )
-#             st.session_state.canon = canon
-#             from memory.system import save_canon
-
-#             save_canon(canon)
-#             st.success(f"角色 {new_name} 已添加")
-#             st.rerun()
 
 
 def render_world_editor_below_control():

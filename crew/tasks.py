@@ -1,6 +1,7 @@
 # crew/tasks.py
 # from crewai import Task
-
+from typing import List
+from pydantic import BaseModel
 from crewai import Task, Agent
 
 # from crewai.agents.agent import Agent
@@ -34,6 +35,10 @@ def write_task(agent: Agent, plan_task_instance: Task) -> Task:
     return Task(
         description="""
 你现在是顶级【网络小说作家 Agent】。
+
+### 💡 创作风格要求：
+- 本次重写请特别【{style_preset}】。
+- 禁止复读之前的措辞，请重新组织语言，在保持逻辑一致的前提下提供新鲜的阅读感。
 
 ### 🏷️ 核心要求：
 1. **章节标题**：请为本章起一个引人入胜的标题。
@@ -91,28 +96,35 @@ def check_task(agent: Agent, write_task_instance: Task, canon: dict) -> Task:
 def memory_task(agent: Agent, write_task_instance: Task):
     return Task(
         description="""
-你现在是【首席速记员】。请仔细阅读 Context 中的小说正文，提取关键信息。
-### 提取任务：
-1. **时空**：主角目前身处哪个具体小地名？（如：林家后山、破庙内）
-2. **角色**：本章除了主角，还出现了谁？（必须提取出姓名，如：赵明轩）
-3. **关键事件**：本章发生了什么推动剧情的事？（用一句话概括，严禁写“无”）
-4. **新设定**：文中是否提到了新的道具、功法或地名？
+        你现在是【首席速记员】。请仔细阅读 Context 中的小说正文，提取关键信息。
+        请严格按照以下格式输出，不要包含任何 Markdown 代码块或多余解释：
 
-### ⚠️ 警告：
-严禁输出“未明确”、“无变化”等空洞回复。如果文中提到了，必须抓取出来！
-""",
-        expected_output="""
-必须包含以下格式：
-### 📍 时空坐标
-- [具体地点] | [时间交代]
-### 👥 角色更新
-- [角色姓名]：[当前状态/位置]
-### ⚡ 剧情链条
-1. [事件A] -> [影响]
-### 🔍 伏笔与名词
-- 名词：[新出现的专业术语]
-""",
+        [SUMMARY]
+        一句话总结本章剧情核心。
+        [/SUMMARY]
+
+        [CHARS]
+        本章实际出场或产生的角色姓名，用逗号隔开。
+        [/CHARS]
+
+        [LOCS]
+        本章发生的具体小地名。
+        [/LOCS]
+
+        [ITEMS]
+        本章新出现的关键道具、功法名词或重要的伏笔。
+        [/ITEMS]
+
+        [CHAR_UPDATE]
+        角色名：当前的心境或关键动作（例如：叶辰：重伤苏醒，心境愈发冷冽）。
+        [/CHAR_UPDATE]
+
+        [PLOT_CHAIN]
+        起因 -> 经过 -> 结果（例如：雾锁林遇袭 -> 药力耗尽 -> 险些被影杀门俘虏）。
+        [/PLOT_CHAIN]
+        """,
+        expected_output="包含 [SUMMARY], [CHARS], [LOCS], [ITEMS], [CHAR_UPDATE], [PLOT_CHAIN]标签的结构化文本。",
         agent=agent,
         context=[write_task_instance],
-        max_retries=3,
+        max_retries=5,
     )

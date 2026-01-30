@@ -27,7 +27,6 @@ def get_initialized_memory() -> CanonMemory:
         )
 
         # 2. 初始角色字典为空
-        # 不再预设“叶辰”，让用户通过 UI 降临第一个角色
         empty_characters = {}
 
         # 3. 组装空内存对象
@@ -56,3 +55,31 @@ def prepare_crew(canon: CanonMemory) -> Crew:
     return build_crew(
         agents=[d_agent, w_agent, c_agent, m_agent], tasks=[plan, write, check, memory]
     )
+
+
+# def partial_crew(canon: CanonMemory):
+#     d_agent = director()
+#     w_agent = writer()
+#     c_agent = checker()
+
+#     plan = plan_task(d_agent)
+#     write = write_task(w_agent, plan)
+#     check = check_task(c_agent, write, canon.read())
+#     return build_crew(
+#         agents=[d_agent, w_agent, c_agent], tasks=[plan, write, check]
+#     )
+
+
+# def memory_crew(chapter_text):
+#     text_length = len(chapter_text)
+#     m_agent = curator()
+#     if text_length < 500:
+#         # 篇幅短：调用简单任务，不强求 JSON，避免模型崩溃
+#         memo_task = simple_memory_task(m_agent, partial_result.tasks_output[1])
+#     else:
+#         # 篇幅长：调用标准结构化任务
+#         memo_task = complex_memory_task(m_agent, partial_result.tasks_output[1])
+        
+#     # 4. 第二阶段：运行记忆提取
+#     memory_crew = Crew(agents=[memory_agent], tasks=[memo_task])
+#     memo_result = memory_crew.kickoff()
