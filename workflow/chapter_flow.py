@@ -1,11 +1,16 @@
 # workflow/chapter_flow.py
 import json
 import random
-from memory.guard import write_creative_memory
+
+from crewai import Crew
+
 from utils.helpers import parse_tagged_memory
+from memory.canon import CanonMemory
 
 
-def prepare_generation_inputs(chapter_num, feedback, canon_memory, creative_memory):
+def prepare_generation_inputs(
+    chapter_num, feedback, canon_memory: CanonMemory, creative_memory
+):
     """
     优化后的 Prompt 输入构建逻辑
     """
@@ -75,13 +80,9 @@ def get_context_instruction(chapter_num):
 """
 
 
-# workflow/chapter_flow.py
-from memory.guard import write_creative_memory
-
-
 def run_chapter(
-    crew,
-    canon_memory,
+    crew: Crew,
+    canon_memory: CanonMemory,
     creative_memory,
     chapter_num: int,
     feedback: str = None,  # 【新增】接收来自 UI 的反馈或逻辑错误
@@ -106,21 +107,23 @@ def run_chapter(
     check_results = result.tasks_output[2].raw
     raw_memo = result.tasks_output[3].raw  # memory_task (方案 B 输出)
 
+    # debug
+    print(f"chapter length: {len(chapter_text)}")
+
+    canon_dict = canon_memory.read()
     # 使用标签解析器
-    memory_notes = parse_tagged_memory(raw_memo)
+    memory_notes = parse_tagged_memory(raw_memo, canon_data=canon_dict)
 
-    # 4. 存入向量数据库
-    # 如果是重写，我们可以在 content 里标注一下是修正后的记忆
-    save_content = memory_notes
-    if feedback:
-        save_content = f"【修正重写】基于反馈：{feedback}\n新记忆点：{memory_notes}"
-
-    write_creative_memory(
-        agent_name="MemoryCurator",
-        memory=creative_memory,
-        content=save_content,
-        chapter_num=chapter_num,
-        full_text=chapter_text,
+    # 将字典转为语义化的纯文本
+    formatted_memo = (
+        f"第{chapter_num}章剧情提要：{memory_notes['summary']}\n"
+        f"角色动态：{memory_notes['char_update']}\n"
+        f"场景地点：{memory_notes['locations']}\n"
+        f"关键线索：{memory_notes['plot_chain']}"
     )
 
-    return chapter_text, check_results, memory_notes
+    # 2. 如果是重写，合并反馈信息
+    if feedback:
+        formatted_memo = f"【修正版本】基于反馈({feedback})重写：\n{formatted_memo}"
+
+    return chapter_text, check_results, memory_notes, formatted_memo

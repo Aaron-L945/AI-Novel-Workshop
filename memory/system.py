@@ -30,11 +30,17 @@ def load_canon(path="canon_storage.json"):
 def reset_all_data(creative_memory: CreativeMemory):
     # 1. 清空向量库
     try:
-        all_ids = creative_memory.collection.get()["ids"]
-        if all_ids:
-            creative_memory.collection.delete(ids=all_ids)
+        collection_name = creative_memory.collection.name
+
+        # 假设你的 collection 名字叫 'novel_events'
+        creative_memory.client.delete_collection(name=collection_name)
+        # 然后重新创建一个同名的空集合
+        creative_memory.collection = creative_memory.client.create_collection(
+            name=collection_name
+        )
+        print("向量库已彻底重置")
     except Exception as e:
-        print(f"向量库清理失败: {e}")
+        print(f"重置失败: {e}")
 
     # 2. 删除正文存档
     if os.path.exists("story_archive"):

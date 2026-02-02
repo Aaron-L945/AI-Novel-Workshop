@@ -13,8 +13,9 @@ from workflow.chapter_flow import run_chapter
 from engine import get_initialized_memory, prepare_crew
 from memory.system import reset_all_data, save_canon
 from memory.schema.timeline import CanonEvent
-from memory.schema.world import WorldRule
 from memory.creative import CreativeMemory
+from memory.canon import CanonMemory
+from memory.guard import write_creative_memory
 
 
 @st.cache_resource
@@ -40,7 +41,7 @@ def init_memory():
 
 
 def render_sidebar_world():
-    canon = st.session_state.canon
+    canon: CanonMemory = st.session_state.canon
 
     with st.sidebar:
         st.header("🌍 世界观设定")
@@ -69,7 +70,7 @@ def render_sidebar_world():
 
 
 def render_sidebar_search():
-    creative = st.session_state.creative
+    creative: CreativeMemory = st.session_state.creative
     with st.sidebar:
         st.divider()
         st.header("🔍 剧情百科检索")
@@ -114,21 +115,22 @@ def render_main_editor():
     col1, col2 = st.columns([3, 1])
 
     with col2:
-        # 放创作按钮、控制面板
+        # 创作按钮、控制面板
         render_control_panel()
-        # 在中控台下方插入世界观编辑器
+        # 世界观编辑器
         render_world_editor_below_control()
         # 角色管理器
         render_character_manager_below_control()
 
     with col1:
+        # 文章预览
         render_story_flow()
 
 
 def render_control_panel():
     st.subheader("⚙️ 创作中控台")
 
-    canon = st.session_state.canon
+    canon: CanonMemory = st.session_state.canon
     is_world_ready = bool(canon.world.genre.strip())
     is_hero_ready = len(canon.characters) > 0
 
@@ -188,7 +190,7 @@ def run_generation(canon, creative, crew, pending_feedback):
             else "正在检索历史背景与角色设定..."
         )
 
-        chapter_text, check_results, memory_notes = run_chapter(
+        chapter_text, check_results, memory_notes, fmt_memo = run_chapter(
             crew,
             canon,
             creative,
@@ -203,6 +205,7 @@ def run_generation(canon, creative, crew, pending_feedback):
             "text": chapter_text,
             "check": check_results,
             "memory": memory_notes,
+            "fmt_memo": fmt_memo,
             "is_rewrite": bool(pending_feedback),
         }
 
@@ -263,12 +266,37 @@ def render_preview_and_actions():
             st.rerun()
 
 
-def confirm_chapter_to_canon(res):
-    canon = st.session_state.canon
+def confirm_chapter_to_canon(res: dict):
+    canon: CanonMemory = st.session_state.canon
+    creative_memory: CreativeMemory = st.session_state.creative
 
     # 假设 res["memory"] 现在是 ChapterSummary 实例或对应的 dict
     memory_data = res["memory"]
+    rag_content = res.get("fmt_memo", "")
+    chapter_num = res["chapter"]
+    chapter_text = res["text"]
 
+    # --- 2. 向量库维护：先删旧，再存新 ---
+    try:
+        # 获取库中所有 ID，找到属于这一章的旧记忆并删除
+        # 注意：因为你的 ids 带有时间戳，不能精确匹配，所以用 metadata 过滤删除
+        creative_memory.collection.delete(where={"chapter": chapter_num})
+
+        # 调用你定义的 write_note 方法
+        # 这会自动处理 embedding、metadata 和唯一 ID
+        # creative_memory.write_note(content=rag_content, chapter_num=chapter_num)
+        write_creative_memory(
+            agent_name="MemoryCurator",
+            memory=creative_memory,
+            content=rag_content,
+            chapter_num=chapter_num,
+            full_text=chapter_text,
+        )
+
+    except Exception as e:
+        st.error(f"向量记忆同步失败: {e}")
+
+    # ---- 3 -----
     # 如果 memory_data 是字符串（AI 有时会返回字符串），则需要 json.loads
     if isinstance(memory_data, str):
         try:
@@ -495,7 +523,7 @@ def render_world_editor_below_control():
     世界观编辑器，自动折叠逻辑：
     如果有题材和至少一个角色，则默认折叠
     """
-    canon = st.session_state.canon
+    canon: CanonMemory = st.session_state.canon
 
     # 判断是否折叠
     has_world = bool(canon.world.genre.strip())
@@ -522,21 +550,48 @@ def render_world_editor_below_control():
 
         # ---------- 世界规则 ----------
         st.markdown("**世界规则**")
-        if not canon.world.rules:
-            st.caption("尚未定义世界运行规则")
+        rule_to_delete = None
 
-        for i, rule in enumerate(canon.world.rules):
-            with st.container():  # 这里用 container 替代 expander
-                st.text_input("规则名", value=rule.name, key=f"rule_name_{i}")
-                st.text_area(
-                    "描述", value=rule.description, key=f"rule_desc_{i}", height=80
+        # 核心修复点：遍历时同时获取索引和对象
+        for i in range(len(canon.world.rules)):
+            with st.container(border=True):  # 建议加边框区分规则
+                cols = st.columns([4, 1])
+                # 1. 直接将输入值更新到对象
+                canon.world.rules[i].name = cols[0].text_input(
+                    f"规则 {i+1} 名称",
+                    value=canon.world.rules[i].name,
+                    key=f"rule_name_{i}",
                 )
 
+                # 增加删除功能（顺手做了，体验更好）
+                if cols[1].button("🗑️", key=f"del_rule_{i}"):
+                    rule_to_delete = i
+
+                canon.world.rules[i].description = st.text_area(
+                    "规则描述",
+                    value=canon.world.rules[i].description,
+                    key=f"rule_desc_{i}",
+                    height=80,
+                )
+
+        # 处理删除逻辑
+        if rule_to_delete is not None:
+            canon.world.rules.pop(rule_to_delete)
+            save_canon(canon)  # 记得保存到 JSON
+            st.rerun()
+
+        # 添加规则
         if st.button("➕ 添加规则", use_container_width=True):
             from memory.schema.world import WorldRule
 
-            canon.world.rules.append(WorldRule(name="", description=""))
+            canon.world.rules.append(WorldRule(name="新规则", description=""))
+            save_canon(canon)  # 关键：修改后立即存盘
             st.rerun()
+
+        # 显式保存按钮（Streamlit 推荐逻辑）
+        if st.button("💾 保存所有修改", type="primary", use_container_width=True):
+            save_canon(canon)
+            st.success("世界观已更新！")
 
 
 def render_character_manager_below_control():
@@ -685,17 +740,74 @@ def render_character_manager_below_control():
                 st.rerun()
 
 
+def render_vector_db_viewer():
+    """在侧边栏展示向量库入库记录"""
+    st.sidebar.markdown("---")
+    with st.sidebar.expander("🔍 向量库入库记录", expanded=False):
+        creative_memory: CreativeMemory = st.session_state.creative
+
+        try:
+            # 获取所有数据（包含文档内容和元数据）
+            # 注意：如果数据量极大，建议添加 limit=20 参数
+            results = creative_memory.collection.get(include=["documents", "metadatas"])
+
+            if not results["ids"]:
+                st.info("暂无入库记录")
+                return
+
+            # 按章节倒序排列（如果有 chapter 字段）
+            records = []
+            for i in range(len(results["ids"])):
+                records.append(
+                    {
+                        "id": results["ids"][i],
+                        "content": results["documents"][i],
+                        "metadata": results["metadatas"][i],
+                    }
+                )
+
+            # 简单的倒序排列，让最新的章节在上面
+            records.sort(key=lambda x: x["metadata"].get("chapter", 0), reverse=True)
+
+            for record in records:
+                chapter = record["metadata"].get("chapter", "未知")
+                time_str = record["metadata"].get("time", "未知时间")
+
+                with st.container(border=True):
+                    st.caption(f"📍 章节: {chapter} | 🕰️ {time_str}")
+                    # 显示部分内容，点击可展开
+                    st.text_area(
+                        f"ID: {record['id']}",
+                        value=record["content"],
+                        height=100,
+                        disabled=True,
+                        key=f"viewer_{record['id']}",
+                    )
+
+            if st.button("🗑️ 清空显示缓存", use_container_width=True):
+                st.rerun()
+
+        except Exception as e:
+            st.error(f"读取向量库失败: {e}")
+
+
 def main():
     setup_page()
     init_memory()
 
     # 页面布局
+
+    ## 左边栏
     render_sidebar_world()
     render_sidebar_search()
+    render_system_panel()
+    render_vector_db_viewer()
+
+    ## 右边栏
     render_main_editor()
 
+    ## 中间栏
     render_timeline()
-    render_system_panel()
 
 
 if __name__ == "__main__":

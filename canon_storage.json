@@ -2,7 +2,7 @@
     "world": {
         "genre": "东方玄幻",
         "tech_level": "凡俗",
-        "magic_system": "境界制：炼气、筑基、金丹",
+        "magic_system": "",
         "rules": [
             {
                 "name": "灵气分布",
@@ -22,7 +22,7 @@
                     "果断"
                 ],
                 "values": [
-                    "复仇"
+                    "有恩必报"
                 ],
                 "fears": [
                     "家族被灭的悲剧重演"
@@ -30,7 +30,7 @@
             },
             "state": {
                 "alive": true,
-                "location": "幽",
+                "location": "青",
                 "physical_status": [
                     "完好"
                 ],
@@ -38,43 +38,15 @@
                     "冷静"
                 ]
             },
-            "first_appearance_chapter": 0
+            "first_appearance_chapter": 1
         }
     },
-    "timeline": [
-        {
-            "chapter": 1,
-            "description": "### 📍 时空坐标\n- 黑雾谷外围,地窟入口 | 章节时间点\n\n### 👥 角色更新\n- 叶辰：叶辰在黑雾谷外围击败三名山贼，回忆家族被灭之仇，决心踏入黑雾谷复仇。\n\n### ⚡ 剧情链条\n1. 叶辰在黑雾谷外围击败三名山贼，回忆家族被灭之仇，决心踏入黑雾谷复仇。\n\n### 🔍 伏笔与名词\n- 名词：家族血仇伏笔",
-            "involved_characters": [
-                "叶辰"
-            ],
-            "irreversible": true,
-            "event_type": "plot"
-        },
-        {
-            "chapter": 2,
-            "description": "### 📍 时空坐标\n- 雾锁石阶 | 章节时间点\n\n### 👥 角色更新\n- 叶辰：左臂受伤，拾得残玉佩时忆及族祠旧景，压下喉头翻涌后继续深入\n\n### ⚡ 剧情链条\n1. 三日后踏入黑雾谷入口 -> 遭藤蔓划伤并击杀两名守卫 -> 拾得残玉佩忆起族祠记忆 -> 玉佩碎裂后借微光辨路深入险境\n\n### 🔍 伏笔与名词\n- 名词：半枚残破玉佩",
-            "involved_characters": [
-                "叶辰"
-            ],
-            "irreversible": true,
-            "event_type": "plot"
-        },
-        {
-            "chapter": 3,
-            "description": "### 📍 时空坐标\n- 幽冥沼泽 | 章节时间点\n\n### 👥 角色更新\n- 叶辰：左臂渗血吞疗伤丹，右腿被藤蔓割伤，咬舌压眩晕继续战斗\n\n### ⚡ 剧情链条\n1. 踏入幽冥沼泽 -> 腐泥塌陷遭藤蔓缠绕 -> 斩妖刀劈开藤蔓致右腿受伤 -> 听到雾中守卫呼喝\n\n### 🔍 伏笔与名词\n- 名词：斩妖刀, 疗伤丹药",
-            "involved_characters": [
-                "叶辰"
-            ],
-            "irreversible": true,
-            "event_type": "plot"
-        }
-    ],
+    "timeline": [],
     "locations": {},
     "artifacts": {},
     "meta": {
         "version": 1,
-        "last_updated_chapter": 3,
-        "updated_at": "2026-01-28T15:03:54.233365"
+        "last_updated_chapter": 0,
+        "updated_at": "2026-01-30T17:18:53.776588"
     }
 }

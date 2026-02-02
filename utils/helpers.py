@@ -39,31 +39,39 @@ def safe_parse_json(raw_output):
     }
 
 
+def parse_tagged_memory(raw_text: str, canon_data: dict = None):
+    """
+    针对当前 JSON 结构设计的解析器。
+    如果没有提取到角色，将尝试从 canon_data 的 characters 列表中获取第一个。
+    """
+    # --- 1. 动态获取兜底角色 ---
+    default_actor = "未知角色"
+    if canon_data and "characters" in canon_data:
+        existing_chars = list(canon_data["characters"].keys())
+        if existing_chars:
+            default_actor = existing_chars[0]  # 动态获取，比如 "叶辰"
 
-def parse_tagged_memory(raw_text: str):
-    """
-    升级版：提取所有细分维度，不再只靠 SUMMARY 填充
-    """
+    # 初始化返回结构
     data = {
         "summary": "暂无摘要",
-        "involved_characters": ["叶辰"],
+        "involved_characters": [default_actor],
         "locations": "未知地点",
         "items": "无",
-        "char_update": "", # 新增：专门存角色动态
-        "plot_chain": ""   # 新增：专门存剧情演化
+        "char_update": "",
+        "plot_chain": "",
     }
-    
+
     if not raw_text:
         return data
 
-    # 1. 定义更丰富的提取规则
+    # --- 2. 标签提取 ---
     patterns = {
         "summary": r"\[SUMMARY\](.*?)\[/SUMMARY\]",
         "chars": r"\[CHARS\](.*?)\[/CHARS\]",
         "locs": r"\[LOCS\](.*?)\[/LOCS\]",
         "items": r"\[ITEMS\](.*?)\[/ITEMS\]",
-        "char_update": r"\[CHAR_UPDATE\](.*?)\[/CHAR_UPDATE\]", # 匹配新标签
-        "plot_chain": r"\[PLOT_CHAIN\](.*?)\[/PLOT_CHAIN\]"     # 匹配新标签
+        "char_update": r"\[CHAR_UPDATE\](.*?)\[/CHAR_UPDATE\]",
+        "plot_chain": r"\[PLOT_CHAIN\](.*?)\[/PLOT_CHAIN\]",
     }
 
     results = {}
@@ -71,17 +79,24 @@ def parse_tagged_memory(raw_text: str):
         match = re.search(pattern, raw_text, re.DOTALL | re.IGNORECASE)
         results[key] = match.group(1).strip() if match else ""
 
-    # 2. 填充数据
+    # --- 3. 数据填充与逻辑合并 ---
     data["summary"] = results.get("summary") or "暂无摘要"
     data["locations"] = results.get("locs") or "未知地点"
     data["items"] = results.get("items") or "无"
-    
-    # 3. 核心改进：优先使用专用标签，没有再用 summary 兜底
-    data["char_update"] = results.get("char_update") or f"角色状态更新：{data['summary']}"
-    data["plot_chain"] = results.get("plot_chain") or f"剧情演进：{data['summary']}"
-    
-    # 角色列表处理
-    char_str = results.get("chars") or "叶辰"
-    data["involved_characters"] = [n.strip() for n in char_str.replace("，", ",").split(",") if n.strip()]
-    
+
+    # 填充更新与链条
+    data["char_update"] = results.get("char_update") or f"角色动态：{data['summary']}"
+    data["plot_chain"] = results.get("plot_chain") or f"因果逻辑：{data['summary']}"
+
+    # 处理涉及角色
+    char_str = results.get("chars")
+    if char_str:
+        # 统一处理中文/英文逗号
+        data["involved_characters"] = [
+            n.strip() for n in char_str.replace("，", ",").split(",") if n.strip()
+        ]
+    else:
+        # 标签缺失时，使用从 JSON 里读出来的 default_actor
+        data["involved_characters"] = [default_actor]
+
     return data

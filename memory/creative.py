@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -5,7 +6,7 @@ from datetime import datetime
 
 
 class CreativeMemory:
-    def __init__(self, model_path: str, db_path="./novel_memory"):
+    def __init__(self, model_path: str, db_path=os.getenv("NOVEL_MEMORY")):
         # 1. 加载本地模型
         self.model = SentenceTransformer(
             model_path, trust_remote_code=True, device="cpu", local_files_only=True
