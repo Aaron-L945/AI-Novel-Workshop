@@ -138,3 +138,6 @@ dmypy.json
 cython_debug/
 
 models/
+novel_memory/
+story_archive/
+*.sqlite3
