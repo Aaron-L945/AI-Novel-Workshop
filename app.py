@@ -8,6 +8,7 @@ import html
 import re
 import json
 import streamlit.components.v1 as components
+from PyPDF2 import PdfReader
 
 from workflow.chapter_flow import run_chapter
 from engine import get_initialized_memory, prepare_crew
@@ -16,6 +17,7 @@ from memory.schema.timeline import CanonEvent
 from memory.creative import CreativeMemory
 from memory.canon import CanonMemory
 from memory.guard import write_creative_memory
+from style_analyzer import analyze_style
 
 
 @st.cache_resource
@@ -110,6 +112,88 @@ def render_sidebar_search():
                 st.success(f"✅ 找到与 '{query}' 相关的线索")
                 st.info(hist)
 
+    render_reference_uploader()
+
+
+def render_reference_uploader():
+    """
+    在侧边栏下方，提供上传参考资料的功能。
+    支持文本输入和文件上传（txt, pdf）。
+    """
+    with st.sidebar:
+        st.divider()
+        with st.expander("📚 临时参考资料", expanded=False):
+            st.caption("上传的资料将作为本次生成的额外上下文")
+
+            # 1. 文本输入
+            # 如果 session_state 中已有缓存，则填入默认值
+            cached_text = st.session_state.get("cached_ref_text", "")
+            ref_text = st.text_area(
+                "直接粘贴文本",
+                value=cached_text,
+                height=100,
+                placeholder="例如：本章需要参考的功法口诀、特殊场景描述...",
+                key="ref_text_input",
+            )
+
+            # 每次输入框变动，都更新 session_state
+            # 但 st.text_area 只有在 rerun 时才会更新返回值
+            # 所以我们需要在外部手动更新一下
+            if ref_text != cached_text:
+                st.session_state.cached_ref_text = ref_text
+
+            # 2. 文件上传
+            uploaded_file = st.file_uploader(
+                "或上传文件 (TXT, PDF)", type=["txt", "pdf"], key="ref_file_input"
+            )
+
+            # 3. 处理文件内容
+            file_content = ""
+            if uploaded_file is not None:
+                try:
+                    if uploaded_file.type == "text/plain":
+                        file_content = uploaded_file.read().decode("utf-8")
+                    elif uploaded_file.type == "application/pdf":
+                        reader = PdfReader(uploaded_file)
+                        for page in reader.pages:
+                            file_content += page.extract_text() + "\n"
+                    
+                    st.success(f"已加载文件: {uploaded_file.name} ({len(file_content)} 字符)")
+                except Exception as e:
+                    st.error(f"文件读取失败: {e}")
+
+            # 4. 汇总参考内容存入 session_state
+            # 每次 rerun 都会重新计算，所以这里不需要复杂的持久化，
+            # 只要保证在点击“开始创作”时能取到即可。
+            combined_ref = ""
+            if ref_text.strip():
+                combined_ref += f"【用户粘贴参考】\n{ref_text}\n\n"
+            if file_content.strip():
+                combined_ref += f"【文件参考】\n{file_content}\n\n"
+            
+            # 【安全截断】检查总长度，防止撑爆 token
+            # 简单估算：1个汉字/单词约等于 1.5 token，这里保守限制为 6000 字符
+            MAX_REF_CHARS = 6000
+            if len(combined_ref) > MAX_REF_CHARS:
+                st.warning(f"⚠️ 参考资料过长（{len(combined_ref)}字符），将自动截断前 {MAX_REF_CHARS} 个字符。")
+                combined_ref = combined_ref[:MAX_REF_CHARS] + "\n...(已截断)..."
+
+            st.session_state.temp_reference_material = combined_ref
+
+            # 5. 风格分析按钮
+            if combined_ref.strip():
+                if st.button("🎨 分析并应用该风格"):
+                    with st.spinner("正在分析文本风格..."):
+                        try:
+                            style_profile = analyze_style(combined_ref)
+                            st.session_state.style_profile = style_profile
+                            st.success("风格档案生成成功！将在下次写作中应用。")
+                            with st.expander("查看风格档案"):
+                                st.json(style_profile)
+                        except Exception as e:
+                            st.error(f"分析失败: {e}")
+
+
 
 def render_main_editor():
     col1, col2 = st.columns([3, 1])
@@ -196,6 +280,8 @@ def run_generation(canon, creative, crew, pending_feedback):
             creative,
             current_chapter,
             feedback=pending_feedback,
+            reference_material=st.session_state.get("temp_reference_material", ""),
+            style_profile=st.session_state.get("style_profile", None)
         )
 
         chapter_text = clean_story_text_for_display(chapter_text)

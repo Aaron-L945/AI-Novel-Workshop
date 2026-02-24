@@ -9,7 +9,7 @@ from memory.canon import CanonMemory
 
 
 def prepare_generation_inputs(
-    chapter_num, feedback, canon_memory: CanonMemory, creative_memory
+    chapter_num, feedback, canon_memory: CanonMemory, creative_memory, reference_material="", style_profile=None
 ):
     """
     优化后的 Prompt 输入构建逻辑
@@ -48,6 +48,21 @@ def prepare_generation_inputs(
         "侧重激烈的动作细节",
         "侧重冷峻的叙事风格",
     ]
+    
+    # 5. 处理 Context Instruction，合并参考资料和风格档案
+    base_instruction = get_context_instruction(chapter_num)
+    
+    if style_profile:
+        # 如果有风格档案，将其注入到指令中
+        base_instruction += f"""
+        
+### 🎭 目标写作风格（请严格模仿）：
+{style_profile}
+"""
+    # 如果有风格档案，就不再参考原文，避免干扰
+    # 只有在没有风格档案，或者参考资料本身不是风格样本时，才加入参考资料
+    elif reference_material:
+        base_instruction += f"\n\n### 📚 附加参考资料：\n{reference_material}"
 
     inputs = {
         "chapter_num": chapter_num,
@@ -56,7 +71,7 @@ def prepare_generation_inputs(
         "historical_recall": (
             historical_recall if historical_recall != "NO_MATCH" else "无特定相关历史伏笔"
         ),
-        "context_instruction": get_context_instruction(chapter_num),
+        "context_instruction": base_instruction,
         "style_preset": random.choice(styles),
     }
     return inputs
@@ -86,6 +101,8 @@ def run_chapter(
     creative_memory,
     chapter_num: int,
     feedback: str = None,  # 【新增】接收来自 UI 的反馈或逻辑错误
+    reference_material: str = "", # 【新增】接收来自 UI 的参考资料
+    style_profile=None, # 【新增】接收来自 UI 的风格档案
 ):
     # 1. 构造 inputs 字典
     # 注意：这些 key 必须与你 Task description 中的 {chapter_num}, {feedback} 等占位符一致
@@ -94,6 +111,8 @@ def run_chapter(
         feedback=feedback,
         canon_memory=canon_memory,
         creative_memory=creative_memory,
+        reference_material=reference_material,
+        style_profile=style_profile,
     )
 
     # 2. 调用 kickoff 并传入 inputs
@@ -101,11 +120,30 @@ def run_chapter(
     result = crew.kickoff(inputs=inputs)
 
     # 3. 获取各阶段输出
-    # 注意：如果你的 Crew 结构变了，索引可能需要调整；
-    # 建议使用任务名称获取更稳妥，例如：result.extract_output_from_task("WriteTask")
-    chapter_text = result.tasks_output[1].raw
-    check_results = result.tasks_output[2].raw
-    raw_memo = result.tasks_output[3].raw  # memory_task (方案 B 输出)
+    # 优化：通过 Task 名称来获取输出，不再依赖固定的索引
+    
+    # 建立 Task Name 到 Output 的映射
+    # CrewAI 的 result.tasks_output 列表顺序与 crew.tasks 列表一致
+    task_output_map = {}
+    
+    if hasattr(crew, 'tasks') and len(crew.tasks) == len(result.tasks_output):
+        for i, task in enumerate(crew.tasks):
+            # 获取任务名称，如果未定义 name 属性，则可能为空
+            # 我们在定义 Task 时已经加上了 name="WriteTask" 等
+            task_name = getattr(task, 'name', None)
+            if task_name:
+                task_output_map[task_name] = result.tasks_output[i].raw
+
+    # 根据名称获取结果，具有更好的鲁棒性
+    # 优先取润色稿，没有则取初稿
+    chapter_text = task_output_map.get("PolishTask")
+    if not chapter_text:
+         chapter_text = task_output_map.get("WriteTask", "")
+         
+    check_results = task_output_map.get("CheckTask", "未执行检查")
+    
+    # MemoryTask 输出可能是 JSON 字符串，需要解析
+    raw_memo = task_output_map.get("MemoryTask", "{}")
 
     # debug
     print(f"chapter length: {len(chapter_text)}")

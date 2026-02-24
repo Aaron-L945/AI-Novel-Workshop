@@ -6,8 +6,8 @@ from memory.schema.world import World, WorldRule
 from memory.schema.meta import CanonMeta
 from memory.canon import CanonMemory
 from memory.creative import CreativeMemory
-from crew.agents import writer, director, checker, curator
-from crew.tasks import plan_task, write_task, check_task, memory_task
+from crew.agents import writer, director, checker, curator, polisher
+from crew.tasks import plan_task, write_task, check_task, memory_task, polish_task
 from crew.crew import build_crew
 from crewai import Crew
 
@@ -44,16 +44,19 @@ def prepare_crew(canon: CanonMemory) -> Crew:
     # 每次生成新章节都要重新构建任务，因为 canon.read() 的内容变了
     d_agent = director()
     w_agent = writer()
+    p_agent = polisher()
     c_agent = checker()
     m_agent = curator()
 
     plan = plan_task(d_agent)
     write = write_task(w_agent, plan)
-    check = check_task(c_agent, write, canon.read())
-    memory = memory_task(m_agent, write)
+    polish = polish_task(p_agent, write)
+    check = check_task(c_agent, polish, canon.read())
+    memory = memory_task(m_agent, polish)
 
     return build_crew(
-        agents=[d_agent, w_agent, c_agent, m_agent], tasks=[plan, write, check, memory]
+        agents=[d_agent, w_agent, p_agent, c_agent, m_agent],
+        tasks=[plan, write, polish, check, memory],
     )
 
 

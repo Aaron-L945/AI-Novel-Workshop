@@ -9,6 +9,7 @@ from crewai import Task, Agent
 
 def plan_task(agent: Agent) -> Task:
     return Task(
+        name="PlanTask",
         description="""
 你现在是【导演 Agent】。正在规划第 {chapter_num} 章。
 {context_instruction}
@@ -33,12 +34,12 @@ def plan_task(agent: Agent) -> Task:
 
 def write_task(agent: Agent, plan_task_instance: Task) -> Task:
     return Task(
+        name="WriteTask",
         description="""
 你现在是顶级【网络小说作家 Agent】。
 
 ### 💡 创作风格要求：
-- 本次重写请特别【{style_preset}】。
-- 禁止复读之前的措辞，请重新组织语言，在保持逻辑一致的前提下提供新鲜的阅读感。
+{context_instruction}
 
 ### 🏷️ 核心要求：
 1. **章节标题**：请为本章起一个引人入胜的标题。
@@ -69,6 +70,48 @@ def write_task(agent: Agent, plan_task_instance: Task) -> Task:
     )
 
 
+def polish_task(agent: Agent, write_task_instance: Task) -> Task:
+    return Task(
+        name="PolishTask",
+        description="""
+你现在是【文学润色师 Agent】。
+
+### 核心任务：
+请阅读 Context 中的小说初稿，应用《AI 写作特征去除指南》进行深度重写。
+你的目标是**消除所有 AI 生成的痕迹**，注入真实的人性与灵魂，使文字读起来像是由一位有观点、有情绪的人类作家写出的。
+
+### 🚫 必须消除的 AI 模式（见到必删）：
+1. **过度强调意义**：删除所有“标志着……的关键时刻”、“不仅……而且……”、“作为……的证明”等宏大叙事。
+2. **机械连接词**：严禁使用“此外”、“然而”、“值得注意的是”、“总之”、“综上所述”。
+3. **肤浅的分析**：删除句末的“-ing”式总结（如“……凸显了……”、“……象征着……”）。
+4. **宣传式语言**：删除“令人叹为观止的”、“充满活力的”、“无缝的”等空洞形容词。
+5. **公式化结构**：打破“三段式”列举，打破“虽然……但是……”的二元对比。
+6. **AI 词汇黑名单**：严禁出现【织锦、交响曲、挂毯、见证、基石、催化剂、领域、格局、至关重要、深入探讨】。
+
+### ✨ 注入灵魂指南：
+1. **要有观点**：不要中立报道。通过角色的感官和心理，对事件做出主观反应（“这让人不安”、“我不知道该怎么看”）。
+2. **变化节奏**：使用短促有力的句子。混合长短句。不要让每个段落长度都一样。
+3. **具体细节**：用“凌晨三点的机器轰鸣声”代替“令人担忧的噪音”。信任读者，直接陈述事实，不要解释隐喻。
+4. **允许不完美**：真实的对话和心理活动是混乱的、跳跃的，不要写得像教科书一样逻辑完美。
+5. **系动词回归**：多用简单的“是”、“有”，少用“作为”、“充当”、“设有”。
+
+### 格式要求：
+- 保持原有的章节标题格式（第X章：名称）。
+- 直接输出润色后的正文，不要包含任何“润色说明”、“改写前/改写后”对比或总结。
+- 使用标准的中文标点符号和段落格式。
+""",
+        expected_output="""
+一份经过深度润色、去AI味的小说正文。
+1. 第一行是章节标题。
+2. 内容流畅自然，文笔优美。
+3. 没有任何多余的解释性文字。
+""",
+        agent=agent,
+        context=[write_task_instance],
+        max_retries=3,
+    )
+
+
 def check_task(agent: Agent, write_task_instance: Task, canon: dict) -> Task:
     # 瘦身：只取最关键的 3 条规则和最近 2 条时间线
     minimal_canon = {
@@ -77,6 +120,7 @@ def check_task(agent: Agent, write_task_instance: Task, canon: dict) -> Task:
     }
 
     return Task(
+        name="CheckTask",
         description=f"""
 你现在是【首席逻辑官】。请审计 Context 中的正文是否存在以下断裂：
 1. **转场**：开头是否有时间交代（如“三日后”）？
@@ -95,6 +139,7 @@ def check_task(agent: Agent, write_task_instance: Task, canon: dict) -> Task:
 
 def memory_task(agent: Agent, write_task_instance: Task):
     return Task(
+        name="MemoryTask",
         description="""
         你现在是【首席速记员】。请仔细阅读 Context 中的小说正文，提取关键信息。
         请严格按照以下格式输出，不要包含任何 Markdown 代码块或多余解释：
