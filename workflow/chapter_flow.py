@@ -9,7 +9,7 @@ from memory.canon import CanonMemory
 
 
 def prepare_generation_inputs(
-    chapter_num, feedback, canon_memory: CanonMemory, creative_memory, reference_material="", style_profile=None
+    chapter_num, feedback, canon_memory: CanonMemory, creative_memory, reference_material="", style_profile=None, target_word_count=3000
 ):
     """
     优化后的 Prompt 输入构建逻辑
@@ -41,6 +41,41 @@ def prepare_generation_inputs(
     )
     historical_recall, _ = creative_memory.recall(search_query, n_results=2)
 
+    # 3.1 情节重复检测
+    # 使用 search_query 在向量库中搜索，如果存在相似度极高（距离很小）的记录，说明该情节可能已经写过
+    # 注意：creative_memory.recall 返回的是 (hist_text, recent_text)
+    # 我们需要通过 creative_memory 的底层方法或者稍微修改 recall 来获取距离信息
+    # 这里我们直接调用 creative_memory.collection.query 来获取距离
+    
+    # 构造查询向量
+    query_emb = creative_memory._get_embedding(search_query, is_query=True)
+    
+    # 查询最相似的 1 条记录
+    duplication_check = creative_memory.collection.query(
+        query_embeddings=[query_emb],
+        n_results=1
+    )
+    
+    # 检查距离
+    # 这里的阈值需要根据实际模型调整，nomic-embed-text-v1.5 归一化后，相似内容的距离通常小于 0.3
+    # 如果距离小于阈值，说明库里已经有非常相似的内容
+    if duplication_check["ids"] and duplication_check["distances"][0]:
+        min_dist = duplication_check["distances"][0][0]
+        # 设定一个严格的阈值，比如 0.25，表示高度重复
+        if min_dist < 0.25:
+            existing_content = duplication_check["documents"][0][0]
+            # 只有当 feedback 存在（即用户有明确意图）时，才提示重复
+            # 如果是自动生成的 search_query（基于上一章），则不需要查重
+            if feedback:
+                 base_instruction_warning = f"""
+⚠️ **警告：情节重复检测**
+检测到您提供的构思与历史情节高度雷同！
+【历史相似片段】：{existing_content}
+请务必**更换情节走向**，或者从完全不同的角度进行描写，避免读者产生疲劳感。
+"""
+                 # 将警告插入到 feedback 中，强制 AI 注意
+                 feedback += f"\n\n{base_instruction_warning}"
+
     # 4. 构建最终 inputs
     styles = [
         "侧重细腻的心理描写",
@@ -51,6 +86,9 @@ def prepare_generation_inputs(
     
     # 5. 处理 Context Instruction，合并参考资料和风格档案
     base_instruction = get_context_instruction(chapter_num)
+    
+    # 注入字数限制指令
+    base_instruction += f"\n\n### 📏 字数要求：\n请将本章正文长度控制在 **{target_word_count}** 字左右（允许上下浮动 10%）。内容必须充实，拒绝注水。"
     
     if style_profile:
         # 如果有风格档案，将其注入到指令中
@@ -73,6 +111,7 @@ def prepare_generation_inputs(
         ),
         "context_instruction": base_instruction,
         "style_preset": random.choice(styles),
+        "target_word_count": target_word_count, # 【修复】添加 target_word_count 到 inputs 字典
     }
     return inputs
 
@@ -103,6 +142,7 @@ def run_chapter(
     feedback: str = None,  # 【新增】接收来自 UI 的反馈或逻辑错误
     reference_material: str = "", # 【新增】接收来自 UI 的参考资料
     style_profile=None, # 【新增】接收来自 UI 的风格档案
+    target_word_count: int = 1000, # 【新增】目标字数
 ):
     # 1. 构造 inputs 字典
     # 注意：这些 key 必须与你 Task description 中的 {chapter_num}, {feedback} 等占位符一致
@@ -113,6 +153,7 @@ def run_chapter(
         creative_memory=creative_memory,
         reference_material=reference_material,
         style_profile=style_profile,
+        target_word_count=target_word_count,
     )
 
     # 2. 调用 kickoff 并传入 inputs

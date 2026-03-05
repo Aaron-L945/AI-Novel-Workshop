@@ -22,7 +22,8 @@ from style_analyzer import analyze_style
 
 @st.cache_resource
 def get_creative_memory():
-    return CreativeMemory(model_path=os.getenv("LOCAL_MODEL_DIR"))
+    # 使用 nomic-ai/nomic-embed-text-v1.5 模型
+    return CreativeMemory(model_path="nomic-ai/nomic-embed-text-v1.5")
 
 
 def setup_page():
@@ -218,6 +219,17 @@ def render_control_panel():
     is_world_ready = bool(canon.world.genre.strip())
     is_hero_ready = len(canon.characters) > 0
 
+    # 增加字数限制滑块
+    word_count = st.slider(
+        "本章目标字数 (预估)",
+        min_value=500,
+        max_value=2000,
+        value=1000,
+        step=100,
+        help="AI 会尽量将章节长度控制在设定范围内，但可能会有一定浮动。"
+    )
+    st.session_state.target_word_count = word_count
+
     # 只保留这一个按钮逻辑
     if st.button(
         "🚀 开始创作下一章",
@@ -281,7 +293,8 @@ def run_generation(canon, creative, crew, pending_feedback):
             current_chapter,
             feedback=pending_feedback,
             reference_material=st.session_state.get("temp_reference_material", ""),
-            style_profile=st.session_state.get("style_profile", None)
+            style_profile=st.session_state.get("style_profile", None),
+            target_word_count=st.session_state.get("target_word_count", 3000) # 传入字数
         )
 
         chapter_text = clean_story_text_for_display(chapter_text)

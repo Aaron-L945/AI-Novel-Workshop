@@ -19,11 +19,12 @@ if not api_key:
     exit(1)
 
 # Try multiple endpoints
-endpoints = [
-    os.getenv("QWEN_BASE_URL"),
-    "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-    "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
-]
+endpoints_str = os.getenv("QWEN_ENDPOINTS", "").strip()
+endpoints = [ep.strip() for ep in endpoints_str.split(',') if ep.strip()]
+
+if not endpoints:
+    print("Error: QWEN_ENDPOINTS not found or empty in environment.")
+    exit(1)
 
 for base_url in endpoints:
     if not base_url:

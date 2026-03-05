@@ -7,9 +7,9 @@ from datetime import datetime
 
 class CreativeMemory:
     def __init__(self, model_path: str, db_path=os.getenv("NOVEL_MEMORY")):
-        # 1. 加载本地模型
+        # 1. 加载模型 (允许从 HuggingFace 下载)
         self.model = SentenceTransformer(
-            model_path, trust_remote_code=True, device="cpu", local_files_only=True
+            model_path, trust_remote_code=True, device="cpu", local_files_only=False
         )
 
         # 2. 初始化 ChromaDB

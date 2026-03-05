@@ -4,11 +4,13 @@ import os
 from dashscope import Generation  # Qwen 官方 SDK
 
 
-def get_llm_for_role(role="writer", llm_type="qwen"):
+def get_llm_for_role(role="writer", llm_type=None):
     """
     返回一个可调用对象，模拟 LLM(**params) 的行为，
     内部使用 Qwen SDK Generation.call 完成请求。
     """
+    if llm_type is None:
+        llm_type = os.getenv("LLM_TYPE", "qwen")
     # 基础共享配置 (超时与重试)
     common_params = {
         "timeout": 600,
@@ -28,31 +30,31 @@ def get_llm_for_role(role="writer", llm_type="qwen"):
             "writer": {
                 "temperature": 0.85,
                 "top_p": 1.0,
-                "max_tokens": 4096,
+                "max_tokens": 12000, # 增加到 12000
                 "presence_penalty": 0.0,
             },
             "director": {
                 "temperature": 0.7,
                 "top_p": 1.0,
-                "max_tokens": 2048,
+                "max_tokens": 4096,
                 "presence_penalty": 0.0,
             },
             "checker": {
                 "temperature": 0.2,
                 "top_p": 1.0,
-                "max_tokens": 2048,
+                "max_tokens": 4096,
                 "presence_penalty": 0.1,
             },
             "curator": {
                 "temperature": 0.5,
                 "top_p": 1.0,
-                "max_tokens": 3072,
+                "max_tokens": 4096,
                 "presence_penalty": 0.0,
             },
             "polisher": {
                 "temperature": 0.6,
                 "top_p": 1.0,
-                "max_tokens": 4096,
+                "max_tokens": 12000, # 增加到 12000
                 "presence_penalty": 0.1,
             },
         }
@@ -79,7 +81,7 @@ def get_llm_for_role(role="writer", llm_type="qwen"):
                 "api_key": os.getenv("QWEN_API_KEY"),
                 "temperature": 0.85 if role == "writer" else 0.1,
                 "top_p": 0.92 if role == "writer" else 0.1,
-                "max_tokens": 8192 if role == "writer" else 3000,
+                "max_tokens": 12000 if role in ["writer", "polisher"] else 4096, # 统一增加输出上限
                 "presence_penalty": 0.3 if role == "writer" else 0.0,
             }
         else:

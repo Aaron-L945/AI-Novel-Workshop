@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  novel-ai:
+    build: .
+    container_name: novel_ai_assistant
+    ports:
+      - "8501:8501"
+    volumes:
+      # 挂载整个项目目录以支持代码热重载 (Hot Reload)
+      - ./:/app
+      # 挂载本地目录以持久化数据 (虽然上面的 ./ 已经包含了，但显式列出有助于理解)
+      # - ./canon_storage.json:/app/canon_storage.json
+      # - ./novel_memory:/app/novel_memory
+      # - ./story_archive:/app/story_archive
+      # - ./.env:/app/.env
+    environment:
+      # 可以在这里覆盖 .env 中的变量
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    networks:
+      - novel_ai_net
+
+networks:
+  novel_ai_net:
+    driver: bridge

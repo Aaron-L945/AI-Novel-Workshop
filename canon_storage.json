@@ -103,13 +103,43 @@
             ],
             "irreversible": true,
             "event_type": "plot"
+        },
+        {
+            "chapter": 7,
+            "description": "### 📍 时空坐标\n- 断魂岭, 赤门 | 章节时间点\n\n### 👥 角色更新\n- 叶辰：利用血纹之力抵挡赤门反噬，坚定寻找家族传承以解决赤门危机。  \n风璃：与叶辰共同施法稳住封印，决心继续寻找解决之道。\n\n### ⚡ 剧情链条\n1. 叶辰和风璃研究竹简 -> 试图用封印术稳住赤门 -> 成功暂时压制反噬力量，决定继续探索古老传承。\n\n### 🔍 伏笔与名词\n- 名词：竹简残片, 封印术",
+            "involved_characters": [
+                "叶辰",
+                "风璃"
+            ],
+            "irreversible": true,
+            "event_type": "plot"
+        },
+        {
+            "chapter": 8,
+            "description": "### 📍 时空坐标\n- 断魂岭, 赤门, 石壁, 古道 | 章节时间点\n\n### 👥 角色更新\n- 叶辰：坚定解开家族封印，心中充满希望。\n风璃：勇敢面对未知，支持叶辰，心意相通。\n\n### ⚡ 剧情链条\n1. 解读符文 -> 进入秘境 -> 解开封印揭示家族秘密\n\n### 🔍 伏笔与名词\n- 名词：竹简残片, 符文, 玉佩碎片, 血纹之力, 古老的传承阵法",
+            "involved_characters": [
+                "叶辰",
+                "风璃"
+            ],
+            "irreversible": true,
+            "event_type": "plot"
+        },
+        {
+            "chapter": 9,
+            "description": "### 📍 时空坐标\n- 断魂岭, 家族秘境 | 章节时间点\n\n### 👥 角色更新\n- 叶辰：感受到沉重责任，坚定守护家族历史，成功激活传承阵法。\n风璃：对叶辰的果断与坚韧愈加敬佩，决心与叶辰并肩作战。\n\n### ⚡ 剧情链条\n1. 古老封印解开 -> 进入家族秘境 -> 叶辰激活传承阵法 -> 发现竹简并解读家族秘密 -> 准备迎接新的挑战\n\n### 🔍 伏笔与名词\n- 名词：古老封印, 祖先遗物, 古老传承阵法, 竹简",
+            "involved_characters": [
+                "叶辰",
+                "风璃"
+            ],
+            "irreversible": true,
+            "event_type": "plot"
         }
     ],
     "locations": {},
     "artifacts": {},
     "meta": {
         "version": 1,
-        "last_updated_chapter": 6,
+        "last_updated_chapter": 9,
         "updated_at": "2026-01-30T17:18:53.776588"
     }
 }

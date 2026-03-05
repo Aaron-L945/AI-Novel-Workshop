@@ -21,7 +21,7 @@ def analyze_style(text_content):
         backstory="""你是一位享誉文坛的文学评论家，擅长解构作家的笔触。
         你能从用词、句式、节奏、修辞等多个维度，精准捕捉文字背后的“指纹”。
         你不仅能分析，还能将这些特征转化为结构化的指导原则，供其他作家模仿。""",
-        llm=get_llm_for_role("director", llm_type="openai"), # 复用 director 的配置
+        llm=get_llm_for_role("director", llm_type=os.getenv("LLM_TYPE", "openai")), # 复用 director 的配置
         verbose=True,
     )
 
