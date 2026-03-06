@@ -6,7 +6,7 @@ from datetime import datetime
 
 
 class CreativeMemory:
-    def __init__(self, model_path: str, db_path=os.getenv("NOVEL_MEMORY")):
+    def __init__(self, model_path: str, db_path="novel_memory"):
         # 1. 加载模型 (允许从 HuggingFace 下载)
         self.model = SentenceTransformer(
             model_path, trust_remote_code=True, device="cpu", local_files_only=False

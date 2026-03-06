@@ -130,7 +130,7 @@
 ## 📂 项目结构
 
 ```
-novel_ai/
+AI-Novel-Workshop/
 ├── app.py                  # Streamlit 主程序入口
 ├── engine.py               # 核心引擎，负责初始化 Crew 和 Memory
 ├── style_analyzer.py       # 风格分析逻辑

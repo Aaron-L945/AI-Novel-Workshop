@@ -141,3 +141,4 @@ models/
 novel_memory/
 story_archive/
 *.sqlite3
+canon_storage.json

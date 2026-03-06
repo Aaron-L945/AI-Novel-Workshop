@@ -17,7 +17,7 @@ from memory.schema.timeline import CanonEvent
 from memory.creative import CreativeMemory
 from memory.canon import CanonMemory
 from memory.guard import write_creative_memory
-from style_analyzer import analyze_style
+from utils.style_analyzer import analyze_style
 
 
 @st.cache_resource
