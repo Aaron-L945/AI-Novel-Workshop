@@ -103,6 +103,20 @@ streamlit run app.py
 6. **访问应用**
 打开浏览器访问：`http://localhost:8501`
 
+## 页面预览
+### 左边栏
+<img width="411" height="897" alt="image" src="https://github.com/user-attachments/assets/dda1537c-e389-4f97-b70a-07598267c51c" />
+<img width="429" height="900" alt="eefbdbd74d960ab13e52f6142d78c40d" src="https://github.com/user-attachments/assets/7018b921-9fe4-4ef9-935f-14a39737713b" />
+
+### 中部区域
+<img width="966" height="579" alt="9a3d3df656a948b449e18b12158b8568" src="https://github.com/user-attachments/assets/b8d2b272-23a0-47d4-bcae-9a3ab04ef0f6" />
+<img width="987" height="327" alt="8dd210027cc762dcf0ab15b656bcd8c6" src="https://github.com/user-attachments/assets/ac72b0bc-90a4-4355-aa1a-d07375c6938f" />
+<img width="573" height="764" alt="image" src="https://github.com/user-attachments/assets/4e24c81f-35c9-4c69-bc21-de7cd26f6eb8" />
+
+### 右边栏
+<img width="372" height="567" alt="067c30bf59bc6675fe280864117be165" src="https://github.com/user-attachments/assets/f6989d07-68da-4729-a5e5-78ec81f27c6a" />
+
+
 ## 📖 使用指南
 
 ### 第一步：设定世界观
@@ -225,6 +239,9 @@ AI-Novel-Workshop/
 - 通义千问团队提供的强大语言模型
 - Streamlit团队提供的简洁UI框架
 
+## 联系作者：
+Email： lxybecomerich@163.com
+VX:     lxybecomerich
 ---
 
 **Happy Writing! 🎉 让AI成为你创作路上的得力助手！**
