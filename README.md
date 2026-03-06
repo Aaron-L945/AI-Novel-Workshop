@@ -241,7 +241,7 @@ AI-Novel-Workshop/
 
 ## 联系作者：
 - Email： lxybecomerich@163.com
-- VX:     lxybecomerich
+- WeChat:  lxybecomerich
 ---
 
 **Happy Writing! 🎉 让AI成为你创作路上的得力助手！**
