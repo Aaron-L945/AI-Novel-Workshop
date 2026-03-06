@@ -240,8 +240,8 @@ AI-Novel-Workshop/
 - Streamlit团队提供的简洁UI框架
 
 ## 联系作者：
-Email： lxybecomerich@163.com
-VX:     lxybecomerich
+- Email： lxybecomerich@163.com
+- VX:     lxybecomerich
 ---
 
 **Happy Writing! 🎉 让AI成为你创作路上的得力助手！**
