@@ -6,10 +6,14 @@ from datetime import datetime
 
 
 class CreativeMemory:
-    def __init__(self, model_path: str, db_path="novel_memory"):
-        # 1. 加载模型 (允许从 HuggingFace 下载)
+    def __init__(self, model_path: str = None, db_path="novel_memory"):
+        # 使用环境变量中的本地模型路径，节省网络下载
+        if model_path is None:
+            model_path = os.getenv("EMBEDDING_MODEL_PATH", "/home/aaron/.cache/modelscope/hub/models/BAAI/bge-m3")
+        
+        # 1. 加载模型 (优先使用本地缓存)
         self.model = SentenceTransformer(
-            model_path, trust_remote_code=True, device="cpu", local_files_only=False
+            model_path, trust_remote_code=True, device="cpu", local_files_only=True
         )
 
         # 2. 初始化 ChromaDB

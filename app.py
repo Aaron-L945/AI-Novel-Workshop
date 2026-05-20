@@ -23,7 +23,7 @@ from utils.style_analyzer import analyze_style
 @st.cache_resource
 def get_creative_memory():
     # 使用 nomic-ai/nomic-embed-text-v1.5 模型
-    return CreativeMemory(model_path="nomic-ai/nomic-embed-text-v1.5")
+    return CreativeMemory(model_path=os.getenv("EMBEDDING_MODEL_PATH", "/home/aaron/.cache/modelscope/hub/models/BAAI/bge-m3"))
 
 
 def setup_page():

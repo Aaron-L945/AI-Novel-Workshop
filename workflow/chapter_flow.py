@@ -1,6 +1,7 @@
 # workflow/chapter_flow.py
 import json
 import random
+import re
 
 from crewai import Crew
 
@@ -116,6 +117,138 @@ def prepare_generation_inputs(
     return inputs
 
 
+def strip_think_content(text: str) -> str:
+    """
+    去除文本中的 <think>... 思考过程标记
+    以及 Final Answer: 等 AI 输出前缀
+    """
+    if not text:
+        return text
+    import re
+    
+    # ========================================
+    # 【新增】第一步：智能提取正文部分
+    # ========================================
+    
+    # 策略1：查找"第X章："作为正文的起始点，删除之前的所有内容
+    chapter_match = re.search(r"第\s*\d+\s*章[：:]\s*[^\n]*\n", text)
+    if chapter_match:
+        # 如果发现"第X章"前面有大量分析内容，说明需要截断
+        if chapter_match.start() > 200:
+            # 保留从"第X章"开始的内容
+            text = text[chapter_match.start():]
+    
+    # 策略2：查找"润色后的文本"标记，删除之前的所有内容
+    polish_marker = re.search(r"润色后的?文本[：:]", text)
+    if polish_marker:
+        text = text[polish_marker.end():]
+    
+    # 策略3：查找"原文"标记后的正式内容（区分分析用的"原文"和正文）
+    # 如果"原文"后面紧跟正文段落，则从那里开始
+    original_marker = re.search(r"原文[：:]\s*\n", text)
+    if original_marker:
+        # 检查原文标记后是否是长段落（超过100字）
+        rest = text[original_marker.end():]
+        next_newline = rest.find("\n")
+        if next_newline > 50:  # 原文内容超过50字，可能是正文
+            # 但这可能是分析段落，需要继续检查是否有"润色后"
+            pass
+    
+    # ========================================
+    # 第二步：去除各种 AI 输出标记
+    # ========================================
+    
+    # 去除 XML 注释形式 <!-- ... -->
+    text = re.sub(r"<!--[\s\S]*?-->", "", text)
+    
+    # 去除 <think>... 形式（最外层包裹）
+    text = re.sub(r"<think>[\s\S]*?", "", text, flags=re.IGNORECASE)
+    
+    # 去除 <think>... 形式（未闭合的）
+    text = re.sub(r"<think>[\s\S]*?$", "", text, flags=re.IGNORECASE)
+    
+    # 去除 Final Answer: 之后的所有内容（仅保留 Final Answer 部分）
+    # 这对 Qwen-Thinking 模式的输出特别有效
+    final_answer_match = re.search(r"Final\s+Answer\s*[:：]\s*", text, re.IGNORECASE)
+    if final_answer_match:
+        # 提取 Final Answer: 之后的内容
+        after_final = text[final_answer_match.end():]
+        # 如果 Final Answer 部分很短（几百字以内），认为是正常输出
+        if len(after_final.strip()) < 500:
+            text = after_final.strip()
+    
+    # 去除 Agent: XXX 这样的前缀行
+    text = re.sub(r"^(Agent|角色|任务)[\s:：]+.*$", "", text, flags=re.MULTILINE)
+    
+    # 去除 【】 方括号包裹的标签
+    text = re.sub(r"【[^】]*】", "", text)
+    
+    # 去除 ** 包裹的标题
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    
+    # ========================================
+    # 【新增】第三步：去除分析说明段落
+    # ========================================
+    
+    # 去除"用户要求我"、"让我先分析"、"根据润色要求"等分析性开头
+    analysis_patterns = [
+        r"用户要求我作为.*?开始润色[，，]?\s*",
+        r"让我先分析.*?\n",
+        r"根据润色要求[：:].*?\n",
+        r"问题[：:]\s*\d+[.、].*?\n",
+        r"让我开始润色[，，]?逐段处理[：:]\s*",
+        r"节点一[：:].*?\n",
+        r"原文[：:]\s*\n",  # 分析中引用的原文
+    ]
+    for pattern in analysis_patterns:
+        text = re.sub(pattern, "", text, flags=re.MULTILINE | re.IGNORECASE)
+    
+    # 去除"这是分析过程"的典型特征行
+    lines = text.split('\n')
+    clean_lines = []
+    skip_mode = False
+    for line in lines:
+        # 检测是否为分析说明段落（短行 + 分析性词汇）
+        stripped = line.strip()
+        if len(stripped) < 100:  # 短行可能是说明
+            if any(kw in stripped for kw in ['分析', '润色', '问题', '规则', '要求', '根据']):
+                if not re.search(r"第\s*\d+\s*章", stripped):  # 但章节标题要保留
+                    continue  # 跳过这行
+        clean_lines.append(line)
+    text = '\n'.join(clean_lines)
+    
+    return text.strip()
+
+
+def extract_final_answer_only(text: str) -> str:
+    """
+    专门用于从 Qwen-Thinking 模式中提取干净的 Final Answer
+    如果 Final Answer 部分过长（包含原文），则返回空字符串让调用方使用备用逻辑
+    """
+    if not text:
+        return text
+    
+    import re
+    
+    # 查找 Final Answer: 或 Final Answer\n 的位置
+    match = re.search(r"(?:Final\s+Answer|最终答案)[\s:：]*\n?", text, re.IGNORECASE)
+    
+    if match:
+        content = text[match.end():]
+        # 如果内容超过 2000 字，很可能是把原文也输出了（检查报告不应该这么长）
+        if len(content.strip()) > 2000:
+            return ""  # 返回空，让调用方使用备用逻辑
+        return content.strip()
+    
+    # 如果没有找到 Final Answer，尝试查找章节标题（说明输出的是原文）
+    # 如果文本以 "第X章" 开头，说明是小说正文，不是检查报告
+    if re.match(r"第\s*\d+\s*章", text.strip()):
+        return ""  # 返回空
+    
+    # 其他情况，返回原始文本（但仍去除 think 标签）
+    return strip_think_content(text)
+
+
 def get_context_instruction(chapter_num):
     """指令集解耦，增加写作技巧引导"""
     if chapter_num == 1:
@@ -180,8 +313,21 @@ def run_chapter(
     chapter_text = task_output_map.get("PolishTask")
     if not chapter_text:
          chapter_text = task_output_map.get("WriteTask", "")
+    
+    # 【关键】去除 AI 思考过程标记，防止 thinking 过程泄露到最终输出
+    chapter_text = strip_think_content(chapter_text)
          
     check_results = task_output_map.get("CheckTask", "未执行检查")
+    # 对检查结果应用 Final Answer 提取逻辑（用于 Qwen-Thinking 模式）
+    extracted_check = extract_final_answer_only(check_results)
+    if extracted_check:
+        check_results = extracted_check
+    else:
+        # 如果提取失败（可能输出的是原文），则仅去除 think 标签，保留格式
+        check_results = re.sub(r"<think>.*?</think>", "", check_results, flags=re.DOTALL)
+        # 如果处理后的内容过长（超过 2000 字），说明 AI 把原文输出了
+        if len(check_results) > 2000:
+            check_results = "⚠️ 检查任务输出异常，AI 可能将原文内容输出为检查报告，请人工审核章节逻辑。"
     
     # MemoryTask 输出可能是 JSON 字符串，需要解析
     raw_memo = task_output_map.get("MemoryTask", "{}")

@@ -68,11 +68,19 @@ git clone <项目地址>
 cd AI-Novel-Workshop
 ```
 
-2. **创建虚拟环境**
+2. **创建虚拟环境并配置环境变量**
 ```bash
+# 复制环境变量示例文件
+cp .venv.example .env
+# 编辑 .env 填入你的 API 密钥
+
+# 创建虚拟环境（如果使用软链接共享已有虚拟环境，可跳过此步）
 python -m venv .venv
 source .venv/bin/activate  # Linux/Mac
 # 或 .venv\Scripts\activate  # Windows
+
+# 设置 Python 路径（确保模块导入正常）
+export PYTHONPATH="$(pwd)"
 ```
 
 3. **安装依赖**
@@ -80,7 +88,7 @@ source .venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
-4. **配置API密钥**
+4. **配置API密钥和环境变量**
 编辑 `.env` 文件，根据您选择的 LLM 类型添加您的API密钥：
 
 **使用阿里云通义千问（推荐）**
@@ -95,9 +103,14 @@ export OPENAI_API_KEY=your_openai_api_key_here
 export LLM_TYPE=openai
 ```
 
+**嵌入模型配置（可选，使用本地缓存）**
+```bash
+export EMBEDDING_MODEL_PATH=/home/aaron/.cache/modelscope/hub/models/BAAI/bge-m3
+```
+
 5. **启动应用**
 ```bash
-streamlit run app.py
+.venv/bin/python -m streamlit run app.py
 ```
 
 6. **访问应用**

@@ -1,6 +1,5 @@
 import os
 from crewai import LLM
-import os
 from dashscope import Generation  # Qwen 官方 SDK
 
 
@@ -10,14 +9,66 @@ def get_llm_for_role(role="writer", llm_type=None):
     内部使用 Qwen SDK Generation.call 完成请求。
     """
     if llm_type is None:
-        llm_type = os.getenv("LLM_TYPE", "qwen")
+        llm_type = os.getenv("LLM_TYPE", "claude")
     # 基础共享配置 (超时与重试)
     common_params = {
         "timeout": 600,
         "max_retries": 5,
     }
 
-    if llm_type == "openai":
+    if llm_type == "claude":
+        # Claude API 配置
+        base_claude_config = {
+            "provider": "anthropic",
+            "api_key": os.getenv("ANTHROPIC_API_KEY"),
+        }
+
+        # 角色特定配置
+        role_configs = {
+            "writer": {
+                "model": "claude-sonnet-4-6",
+                "temperature": 0.85,
+                "top_p": 1.0,
+                "max_tokens": 12000,
+            },
+            "director": {
+                "model": "claude-sonnet-4-6",
+                "temperature": 0.7,
+                "top_p": 1.0,
+                "max_tokens": 4096,
+            },
+            "checker": {
+                "model": "claude-sonnet-4-6",
+                "temperature": 0.2,
+                "top_p": 1.0,
+                "max_tokens": 4096,
+            },
+            "curator": {
+                "model": "claude-sonnet-4-6",
+                "temperature": 0.5,
+                "top_p": 1.0,
+                "max_tokens": 4096,
+            },
+            "polisher": {
+                "model": "claude-sonnet-4-6",
+                "temperature": 0.6,
+                "top_p": 1.0,
+                "max_tokens": 12000,
+            },
+        }
+
+        specific_config = role_configs.get(
+            role,
+            {
+                "model": "claude-sonnet-4-6",
+                "temperature": 0.7,
+                "top_p": 1.0,
+                "max_tokens": 2048,
+            },
+        )
+
+        target_config = {**base_claude_config, **specific_config}
+    elif llm_type == "openai":
         # 默认基础配置
         base_openai_config = {
             "model": os.getenv("OPENAI_MODEL_NAME"),
@@ -30,7 +81,7 @@ def get_llm_for_role(role="writer", llm_type=None):
             "writer": {
                 "temperature": 0.85,
                 "top_p": 1.0,
-                "max_tokens": 12000, # 增加到 12000
+                "max_tokens": 12000,
                 "presence_penalty": 0.0,
             },
             "director": {
@@ -54,12 +105,11 @@ def get_llm_for_role(role="writer", llm_type=None):
             "polisher": {
                 "temperature": 0.6,
                 "top_p": 1.0,
-                "max_tokens": 12000, # 增加到 12000
+                "max_tokens": 12000,
                 "presence_penalty": 0.1,
             },
         }
 
-        # 获取特定角色的配置，如果没有则使用默认值（这里以 director 为默认）
         specific_config = role_configs.get(
             role,
             {
@@ -71,6 +121,7 @@ def get_llm_for_role(role="writer", llm_type=None):
         )
 
         target_config = {**base_openai_config, **specific_config}
+
     else:  # 默认为 qwen
         # 区分模式
         if role in ["writer", "checker", "polisher"]:
