@@ -9,7 +9,7 @@ def get_llm_for_role(role="writer", llm_type=None):
     内部使用 Qwen SDK Generation.call 完成请求。
     """
     if llm_type is None:
-        llm_type = os.getenv("LLM_TYPE", "claude")
+        llm_type = os.getenv("LLM_TYPE", "qwen")
     # 基础共享配置 (超时与重试)
     common_params = {
         "timeout": 600,
@@ -20,37 +20,38 @@ def get_llm_for_role(role="writer", llm_type=None):
         # Claude API 配置
         base_claude_config = {
             "provider": "anthropic",
-            "api_key": os.getenv("ANTHROPIC_API_KEY"),
+            "api_key": os.getenv("CLAUDE_API_KEY"),
+            "base_url": os.getenv("CLAUDE_API_BASE"),
         }
 
         # 角色特定配置
         role_configs = {
             "writer": {
-                "model": "claude-sonnet-4-6",
+                "model": os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
                 "temperature": 0.85,
                 "top_p": 1.0,
                 "max_tokens": 12000,
             },
             "director": {
-                "model": "claude-sonnet-4-6",
+                "model": os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
                 "temperature": 0.7,
                 "top_p": 1.0,
                 "max_tokens": 4096,
             },
             "checker": {
-                "model": "claude-sonnet-4-6",
+                "model": os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
                 "temperature": 0.2,
                 "top_p": 1.0,
                 "max_tokens": 4096,
             },
             "curator": {
-                "model": "claude-sonnet-4-6",
+                "model": os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
                 "temperature": 0.5,
                 "top_p": 1.0,
                 "max_tokens": 4096,
             },
             "polisher": {
-                "model": "claude-sonnet-4-6",
+                "model": os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
                 "temperature": 0.6,
                 "top_p": 1.0,
                 "max_tokens": 12000,
@@ -60,7 +61,7 @@ def get_llm_for_role(role="writer", llm_type=None):
         specific_config = role_configs.get(
             role,
             {
-                "model": "claude-sonnet-4-6",
+                "model": os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
                 "temperature": 0.7,
                 "top_p": 1.0,
                 "max_tokens": 2048,
